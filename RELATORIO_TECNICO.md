@@ -86,3 +86,78 @@ pytest-cov (Coverage.py), Ruff, Locust e GitHub Actions.
 | RF10, RNF03 | `test_antifraud_mock_*`, `test_antifraud_failure_does_not_roll_back_committed_transfer` |
 | RNF01 | `test_concurrent_transfers_never_overdraw_and_conserve_money` e o teste de carga (`money_conserved`) |
 | RNF05 | `scripts/check_coverage.py` e `tests/unit/test_coverage_gate.py` |
+
+## 3. Arquitetura
+
+### 3.1 Camadas
+
+```mermaid
+flowchart LR
+    C[Cliente HTTP] --> API[controllers<br/>FastAPI + schemas Pydantic]
+    API --> S[services<br/>Account / Transfer / Statement]
+    S --> D[domain<br/>models + rules puras]
+    S --> R[repositories<br/>SQLite + unit of work]
+    S --> G[gateways]
+    G --> AF[(Webhook anti-fraude)]
+    G --> KYC[(KYC / CPF)]
+    G --> FX[(Câmbio)]
+```
+
+| Camada | Pasta | Responsabilidade |
+|--------|-------|------------------|
+| domain | `src/wallet/domain` | Entidades (`Account`, `Transaction`, `TransferResult`), erros e regras **puras**: validação de valor, câmbio, risco, plano de transferência, CPF e resumo do extrato. Não faz I/O. |
+| services | `src/wallet/services` | Casos de uso. Orquestram repositório e gateways. O relógio e o gerador de IDs são injetáveis. |
+| repositories | `src/wallet/repositories` | Persistência SQLite e unidade de trabalho `atomic()` (lock de processo + `BEGIN IMMEDIATE`). |
+| gateways | `src/wallet/gateways` | Portas (`Protocol`) e adaptadores dos serviços externos. |
+| controllers | `src/wallet/controllers` | Rotas HTTP, validação de entrada e mapeamento dos erros de domínio para códigos HTTP. |
+| container | `src/wallet/container.py` | Composition root. Monta as dependências a partir das configurações e permite trocar adaptadores nos testes. |
+
+### 3.2 Decisões de projeto
+
+1. **Dinheiro em centavos inteiros e `Decimal` com HALF_EVEN.** Elimina os erros de arredondamento de ponto flutuante (RNF04).
+2. **Concorrência.** Toda transferência roda dentro de `repo.atomic()`. O `threading.RLock` serializa as threads do worker e o `BEGIN IMMEDIATE` obtém o lock de escrita do SQLite antes da leitura dos saldos. Assim, ler, validar e gravar acontece sem intercalação, o que evita *lost update* e saldo negativo.
+3. **Idempotência transacional.** A consulta e o registro da chave acontecem dentro da mesma transação do débito e do crédito. Duas requisições simultâneas com a mesma chave não conseguem debitar duas vezes. O hash do payload (`sha256(origem|destino|valor)`) detecta o reuso indevido de uma chave.
+4. **Notificação anti-fraude após o commit.** O webhook só é chamado depois que a transferência é confirmada. Uma falha é registrada em log e não desfaz a operação (RNF03). Uma transferência recusada nunca é notificada.
+5. **Portas e adaptadores.** `AntiFraudGateway`, `KycProvider` e `ExchangeRateProvider` são `Protocol`s. Isso permite injetar *mocks* e *stubs* nos testes sem monkeypatch.
+
+### 3.3 Modelo de dados
+
+```mermaid
+erDiagram
+    accounts ||--o{ transactions : possui
+    accounts {
+        TEXT id PK
+        TEXT holder_name
+        TEXT document UK
+        TEXT currency
+        INTEGER balance_cents "CHECK >= 0"
+        TEXT created_at
+    }
+    transactions {
+        TEXT id PK
+        TEXT account_id FK
+        TEXT type "DEBIT | CREDIT"
+        INTEGER amount_cents "CHECK > 0"
+        INTEGER balance_after_cents
+        TEXT transfer_id
+        TEXT counterparty_account_id
+        TEXT created_at
+    }
+    idempotency_keys {
+        TEXT key PK
+        TEXT request_hash
+        TEXT response_json
+        TEXT created_at
+    }
+```
+
+### 3.4 Contrato HTTP e códigos de erro
+
+| Erro de domínio | HTTP | `error` |
+|-----------------|------|---------|
+| `AccountNotFoundError` | 404 | `account_not_found` |
+| `DuplicateAccountError` | 409 | `duplicate_account` |
+| `IdempotencyConflictError` | 409 | `idempotency_conflict` |
+| `InsufficientFundsError`, `InvalidAmountError`, `SameAccountTransferError`, `InvalidHolderError`, `UnsupportedCurrencyError`, `InvalidRequestError` | 422 | código específico |
+
+Uma transferência nova responde 201. A repetição idempotente responde 200 com o header `Idempotent-Replayed: true`.
