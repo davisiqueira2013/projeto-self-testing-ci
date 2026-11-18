@@ -1,4 +1,5 @@
 import pytest
+
 from wallet.repositories.sqlite import SqliteWalletRepository
 
 
