@@ -1,0 +1,143 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop, "feature/**", "release/**", "hotfix/**"]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash # bash -eo pipefail: um teste falhando no "| tee" ainda quebra o job
+
+env:
+  PYTHON_VERSION: "3.13"
+  PYTHONPATH: src
+  MIN_LINE_COVERAGE: "85"
+  MIN_BRANCH_COVERAGE: "80"
+
+jobs:
+  lint:
+    name: Lint e análise estática
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Ruff (lint + complexidade ciclomática)
+        run: ruff check . --output-format=github
+      - name: Ruff (formatação)
+        run: ruff format --check .
+
+  tests:
+    name: Testes e coverage gate
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - run: mkdir -p reports/logs reports/junit
+
+      - name: Testes unitários
+        run: >
+          pytest tests/unit --cov=wallet --cov-branch --cov-report= --cov-fail-under=0
+          --junitxml=reports/junit/unit.xml 2>&1 | tee reports/logs/unit.log
+
+      - name: Testes de integração (mocks, stubs, SQLite em memória)
+        run: >
+          pytest tests/integration --cov=wallet --cov-branch --cov-append --cov-report=
+          --cov-fail-under=0 --junitxml=reports/junit/integration.xml
+          2>&1 | tee reports/logs/integration.log
+
+      - name: Testes end-to-end (HTTP)
+        run: >
+          pytest tests/e2e --cov=wallet --cov-branch --cov-append --cov-report=
+          --cov-fail-under=0 --junitxml=reports/junit/e2e.xml 2>&1 | tee reports/logs/e2e.log
+
+      - name: Relatórios de cobertura
+        if: always()
+        run: |
+          coverage report | tee reports/logs/coverage.log
+          coverage html
+          coverage xml
+          coverage json
+          {
+            echo "### Cobertura de código"
+            echo '```'
+            coverage report --format=text
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Coverage gate (linhas >= 85%, branches >= 80%)
+        run: >
+          python scripts/check_coverage.py
+          --lines "$MIN_LINE_COVERAGE" --branches "$MIN_BRANCH_COVERAGE"
+          | tee -a reports/logs/coverage.log
+
+      - name: Publicar relatório de cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: reports/coverage/
+          retention-days: 14
+
+      - name: Publicar logs e JUnit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs
+          path: |
+            reports/logs/
+            reports/junit/
+          retention-days: 14
+
+  load-test:
+    name: Teste de carga (50 usuários simultâneos)
+    needs: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Locust contra POST /transfers
+        run: scripts/run_load_test.sh 30s 50
+      - name: Resumo
+        if: always()
+        run: |
+          {
+            echo "### Teste de carga"
+            echo '```json'
+            cat reports/load/summary.json 2>/dev/null || echo "{}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Publicar relatório de carga
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-test-report
+          path: reports/load/
+          retention-days: 14
