@@ -29,7 +29,7 @@ class Account:
 
     def debit(self, amount_cents: int) -> None:
         validate_amount(amount_cents, maximum=None)
-        if amount_cents > self.balance_cents:
+        if not self.can_debit(amount_cents):
             raise InsufficientFundsError(self.id, self.balance_cents, amount_cents)
         self.balance_cents -= amount_cents
 

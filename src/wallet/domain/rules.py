@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from decimal import ROUND_HALF_EVEN, Decimal
+from typing import TYPE_CHECKING
 
 from wallet.domain.errors import (
     InsufficientFundsError,
@@ -11,6 +13,9 @@ from wallet.domain.errors import (
     SameAccountTransferError,
     UnsupportedCurrencyError,
 )
+
+if TYPE_CHECKING:  # pragma: no cover
+    from wallet.domain.models import Account, Transaction
 
 MAX_TRANSFER_CENTS = 100_000_000  # R$ 1.000.000,00 por operação
 SUPPORTED_CURRENCIES = frozenset({"BRL", "USD", "EUR"})
@@ -49,16 +54,16 @@ def is_high_risk(amount_cents: int, threshold_cents: int) -> bool:
     return amount_cents >= threshold_cents
 
 
-def plan_transfer(source, target, amount_cents, rate):
+def plan_transfer(
+    source: Account, target: Account, amount_cents: int, rate: Decimal
+) -> tuple[int, int]:
+    """Calcula (valor debitado, valor creditado) sem alterar as contas."""
     if source.id == target.id:
         raise SameAccountTransferError("source and target accounts must differ")
     debit = validate_amount(amount_cents)
-    if source.balance_cents < debit:
+    if not source.can_debit(debit):
         raise InsufficientFundsError(source.id, source.balance_cents, debit)
-    if source.currency == target.currency:
-        credit = debit
-    else:
-        credit = convert(debit, rate)
+    credit = debit if source.currency == target.currency else convert(debit, rate)
     return debit, credit
 
 
@@ -73,8 +78,12 @@ class StatementSummary:
         return self.total_credits_cents - self.total_debits_cents
 
 
-def summarize(transactions):
-    transactions = list(transactions)
-    credits = sum(t.amount_cents for t in transactions if t.type == "CREDIT")
-    debits = sum(t.amount_cents for t in transactions if t.type == "DEBIT")
-    return StatementSummary(credits, debits, len(transactions))
+def summarize(transactions: Iterable[Transaction]) -> StatementSummary:
+    credits = debits = count = 0
+    for tx in transactions:
+        count += 1
+        if tx.type == "CREDIT":
+            credits += tx.amount_cents
+        else:
+            debits += tx.amount_cents
+    return StatementSummary(credits, debits, count)
