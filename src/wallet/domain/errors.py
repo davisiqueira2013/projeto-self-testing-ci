@@ -47,3 +47,7 @@ class InvalidHolderError(DomainError):
 
 class InvalidRequestError(DomainError):
     code = "invalid_request"
+
+
+class IdempotencyConflictError(DomainError):
+    code = "idempotency_conflict"
