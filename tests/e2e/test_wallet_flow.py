@@ -127,6 +127,17 @@ def test_transfer_business_errors(client, payload_amount, expected_status, error
     assert response.json()["error"] == error
 
 
+def test_idempotency_conflict_returns_409(client):
+    a, b = create_account(client, 7, balance=1_000), create_account(client, 8)
+    url, headers = "/transfers", {"Idempotency-Key": "dup"}
+    payload = {"source_account_id": a["id"], "target_account_id": b["id"], "amount_cents": 10}
+    assert client.post(url, json=payload, headers=headers).status_code == 201
+    payload["amount_cents"] = 20
+    response = client.post(url, json=payload, headers=headers)
+    assert response.status_code == 409
+    assert response.json()["error"] == "idempotency_conflict"
+
+
 def test_missing_idempotency_header_is_rejected(client):
     response = client.post(
         "/transfers", json={"source_account_id": "a", "target_account_id": "b", "amount_cents": 1}

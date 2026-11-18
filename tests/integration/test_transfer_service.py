@@ -7,6 +7,7 @@ import pytest
 
 from wallet.domain.errors import (
     AccountNotFoundError,
+    IdempotencyConflictError,
     InsufficientFundsError,
     InvalidRequestError,
     SameAccountTransferError,
@@ -125,6 +126,17 @@ def test_same_idempotency_key_returns_original_result_without_new_debit(
     assert second == first
     assert repo.get_account(source.id).balance_cents == 9_000
     assert len(repo.list_transactions(source.id, tx_type=TransactionType.DEBIT)) == 1
+
+
+def test_reusing_idempotency_key_with_different_payload_is_a_conflict(
+    transfers, repo, open_account
+):
+    source, target = open_account(10_000), open_account(0)
+    transfers.transfer(source.id, target.id, 1_000, "key-1")
+
+    with pytest.raises(IdempotencyConflictError):
+        transfers.transfer(source.id, target.id, 2_000, "key-1")
+    assert repo.get_account(source.id).balance_cents == 9_000
 
 
 @pytest.mark.parametrize("key", ["", "   ", "x" * 129])
