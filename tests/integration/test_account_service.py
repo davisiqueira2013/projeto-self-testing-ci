@@ -1,5 +1,4 @@
 import pytest
-from wallet.services.account_service import AccountService
 
 from tests.support import StubKycProvider, make_cpf
 from wallet.domain.errors import (
@@ -10,6 +9,7 @@ from wallet.domain.errors import (
     UnsupportedCurrencyError,
 )
 from wallet.domain.models import TransactionType
+from wallet.services.account_service import AccountService
 
 
 def test_open_account_with_initial_balance_persists_account_and_credit(accounts, repo, clock):
