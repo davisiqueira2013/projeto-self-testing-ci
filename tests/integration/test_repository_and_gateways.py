@@ -1,7 +1,10 @@
+import json
 import sqlite3
 from datetime import UTC, datetime
 
+import httpx
 import pytest
+from wallet.gateways.antifraud import NullAntiFraudGateway, WebhookAntiFraudGateway
 
 from tests.support import make_account
 
@@ -41,3 +44,32 @@ class TestSqliteRepository:
         file_repo.add_account(make_account(1, account_id="a"))
         assert file_repo.get_account("a") is not None
         file_repo.close()
+
+
+class TestWebhookAntiFraudGateway:
+    def test_posts_event_as_json_to_configured_url(self):
+        captured: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured.append(request)
+            return httpx.Response(202)
+
+        client = httpx.Client(transport=httpx.MockTransport(handler))
+        gateway = WebhookAntiFraudGateway("https://fraud.example/hook", client=client)
+
+        gateway.notify_transfer({"event": "transfer.completed", "amount_cents": 10})
+
+        [request] = captured
+        assert request.method == "POST"
+        assert str(request.url) == "https://fraud.example/hook"
+        assert request.headers["X-Event-Type"] == "transfer.completed"
+        assert json.loads(request.content) == {"event": "transfer.completed", "amount_cents": 10}
+
+    def test_raises_on_server_error(self):
+        client = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(503)))
+        gateway = WebhookAntiFraudGateway("https://fraud.example/hook", client=client)
+        with pytest.raises(httpx.HTTPStatusError):
+            gateway.notify_transfer({"amount_cents": 10})
+
+    def test_null_gateway_does_nothing(self):
+        assert NullAntiFraudGateway().notify_transfer({"any": "event"}) is None
