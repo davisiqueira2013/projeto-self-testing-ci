@@ -24,6 +24,7 @@ from wallet.domain.models import Account, TransactionType
 STATUS_BY_ERROR: dict[type[errors.DomainError], int] = {
     errors.AccountNotFoundError: status.HTTP_404_NOT_FOUND,
     errors.DuplicateAccountError: status.HTTP_409_CONFLICT,
+    errors.IdempotencyConflictError: status.HTTP_409_CONFLICT,
 }
 
 

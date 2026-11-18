@@ -5,6 +5,7 @@ import logging
 
 from wallet.domain.errors import (
     AccountNotFoundError,
+    IdempotencyConflictError,
     InvalidRequestError,
 )
 from wallet.domain.models import Account, Transaction, TransactionType, TransferResult
@@ -53,6 +54,10 @@ class TransferService:
         with self._repo.atomic():
             previous = self._repo.get_idempotency(key)
             if previous is not None:
+                if previous.request_hash != request_hash:
+                    raise IdempotencyConflictError(
+                        "Idempotency-Key already used with a different payload"
+                    )
                 return TransferResult.from_dict(previous.response), True
 
             source = self._load(source_account_id)
