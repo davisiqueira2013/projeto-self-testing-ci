@@ -1,6 +1,6 @@
 [project]
 name = "wallet-api"
-version = "1.0.1"
+version = "1.0.2"
 description = "Wallet API - microsserviço financeiro com suíte self-testing e CI"
 requires-python = ">=3.11"
 
