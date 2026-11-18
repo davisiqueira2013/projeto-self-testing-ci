@@ -1,6 +1,7 @@
 from unittest.mock import Mock
 
 import pytest
+from wallet.services.statement_service import StatementService
 
 from tests.support import FixedClock, StubExchangeRateProvider, StubKycProvider, make_cpf
 from wallet.gateways.antifraud import AntiFraudGateway
@@ -44,6 +45,7 @@ def transfers(repo, antifraud_mock, clock):
     )
 
 
+@pytest.fixture
 def statements(repo):
     return StatementService(repo)
 
