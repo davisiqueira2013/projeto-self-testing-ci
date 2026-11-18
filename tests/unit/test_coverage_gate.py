@@ -1,6 +1,7 @@
 import json
 
 import pytest
+
 from scripts.check_coverage import evaluate, main
 
 TOTALS = {"num_statements": 200, "covered_lines": 180, "num_branches": 50, "covered_branches": 41}
