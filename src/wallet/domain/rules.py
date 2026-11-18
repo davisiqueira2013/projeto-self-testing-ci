@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from decimal import ROUND_HALF_EVEN, Decimal
@@ -87,3 +88,26 @@ def summarize(transactions: Iterable[Transaction]) -> StatementSummary:
         else:
             debits += tx.amount_cents
     return StatementSummary(credits, debits, count)
+
+
+_NON_DIGITS = re.compile(r"\D")
+
+
+def normalize_document(document: str) -> str:
+    return _NON_DIGITS.sub("", document or "")
+
+
+def _cpf_check_digit(digits: str) -> int:
+    weight = len(digits) + 1
+    total = sum(int(d) * (weight - i) for i, d in enumerate(digits))
+    remainder = (total * 10) % 11
+    return 0 if remainder == 10 else remainder
+
+
+def is_valid_cpf(document: str) -> bool:
+    cpf = normalize_document(document)
+    if len(cpf) != 11 or cpf == cpf[0] * 11:
+        return False
+    first = _cpf_check_digit(cpf[:9])
+    second = _cpf_check_digit(cpf[:9] + str(first))
+    return cpf[9:] == f"{first}{second}"
