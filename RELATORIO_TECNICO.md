@@ -7,8 +7,8 @@
 
 | Item | Link |
 |------|------|
-| Repositório | `https://github.com/<usuario>/projeto-self-testing-ci` *(substituir após o push)* |
-| Execuções do pipeline | `https://github.com/<usuario>/projeto-self-testing-ci/actions` |
+| Repositório | `https://github.com/davisiqueira2013/projeto-self-testing-ci` *(substituir após o push)* |
+| Execuções do pipeline | `https://github.com/davisiqueira2013/projeto-self-testing-ci/actions` |
 | Pipeline | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
 | Script de carga | [`load/locustfile.py`](load/locustfile.py) |
 | Evidência de carga | [`docs/evidencias/load-test-summary.json`](docs/evidencias/load-test-summary.json) |
