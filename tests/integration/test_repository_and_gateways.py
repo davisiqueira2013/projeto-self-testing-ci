@@ -4,9 +4,9 @@ from datetime import UTC, datetime
 
 import httpx
 import pytest
-from wallet.gateways.antifraud import NullAntiFraudGateway, WebhookAntiFraudGateway
 
 from tests.support import make_account
+from wallet.gateways.antifraud import NullAntiFraudGateway, WebhookAntiFraudGateway
 
 
 class TestSqliteRepository:

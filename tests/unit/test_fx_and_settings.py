@@ -1,10 +1,10 @@
 from decimal import Decimal
 
 import pytest
-from wallet.config import Settings, parse_fx_rates
-from wallet.gateways.fx import StaticExchangeRateProvider
 
+from wallet.config import Settings, parse_fx_rates
 from wallet.domain.errors import UnsupportedCurrencyError
+from wallet.gateways.fx import StaticExchangeRateProvider
 
 
 class TestStaticExchangeRateProvider:
