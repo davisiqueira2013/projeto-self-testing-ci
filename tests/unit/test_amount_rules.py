@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 import pytest
+
 from wallet.domain.errors import InvalidAmountError, UnsupportedCurrencyError
 from wallet.domain.rules import (
     MAX_TRANSFER_CENTS,
