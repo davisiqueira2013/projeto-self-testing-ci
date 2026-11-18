@@ -1,6 +1,7 @@
 from unittest.mock import Mock
 
 import pytest
+from wallet.services.transfer_service import TransferService
 
 from tests.support import FixedClock, StubExchangeRateProvider, StubKycProvider, make_cpf
 from wallet.gateways.antifraud import AntiFraudGateway
@@ -32,6 +33,7 @@ def accounts(repo, clock):
     return AccountService(repo, StubKycProvider(approved=True), clock=clock)
 
 
+@pytest.fixture
 def transfers(repo, antifraud_mock, clock):
     return TransferService(
         repo,
