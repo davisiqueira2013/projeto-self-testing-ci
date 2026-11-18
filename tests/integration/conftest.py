@@ -1,12 +1,12 @@
 from unittest.mock import Mock
 
 import pytest
-from wallet.services.transfer_service import TransferService
 
 from tests.support import FixedClock, StubExchangeRateProvider, StubKycProvider, make_cpf
 from wallet.gateways.antifraud import AntiFraudGateway
 from wallet.repositories.sqlite import SqliteWalletRepository
 from wallet.services.account_service import AccountService
+from wallet.services.transfer_service import TransferService
 
 
 @pytest.fixture
