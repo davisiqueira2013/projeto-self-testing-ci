@@ -6,6 +6,8 @@ import httpx
 import pytest
 
 from tests.support import make_account
+from wallet.config import Settings
+from wallet.container import build_container
 from wallet.gateways.antifraud import NullAntiFraudGateway, WebhookAntiFraudGateway
 
 
@@ -73,3 +75,15 @@ class TestWebhookAntiFraudGateway:
 
     def test_null_gateway_does_nothing(self):
         assert NullAntiFraudGateway().notify_transfer({"any": "event"}) is None
+
+
+class TestContainer:
+    def test_uses_webhook_gateway_when_url_is_configured(self):
+        container = build_container(Settings(antifraud_webhook_url="https://fraud.example/hook"))
+        assert isinstance(container.transfers._antifraud, WebhookAntiFraudGateway)
+        container.repository.close()
+
+    def test_uses_null_gateway_by_default(self):
+        container = build_container(Settings())
+        assert isinstance(container.transfers._antifraud, NullAntiFraudGateway)
+        container.repository.close()
