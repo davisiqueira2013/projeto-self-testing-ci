@@ -1,8 +1,8 @@
 import pytest
-from wallet.gateways.kyc import CpfKycProvider
 
 from tests.support import make_cpf
 from wallet.domain.rules import is_valid_cpf, normalize_document
+from wallet.gateways.kyc import CpfKycProvider
 
 
 @pytest.mark.parametrize("cpf", ["529.982.247-25", "52998224725", "111.444.777-35"])
