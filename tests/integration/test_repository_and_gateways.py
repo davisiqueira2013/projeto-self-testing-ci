@@ -4,10 +4,10 @@ from datetime import UTC, datetime
 
 import httpx
 import pytest
-from wallet.container import build_container
 
 from tests.support import make_account
 from wallet.config import Settings
+from wallet.container import build_container
 from wallet.gateways.antifraud import NullAntiFraudGateway, WebhookAntiFraudGateway
 
 

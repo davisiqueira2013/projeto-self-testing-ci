@@ -5,11 +5,11 @@ from unittest.mock import Mock
 
 import pytest
 from fastapi.testclient import TestClient
-from wallet.container import build_container
-from wallet.controllers.api import create_app
 
 from tests.support import make_cpf
 from wallet.config import Settings
+from wallet.container import build_container
+from wallet.controllers.api import create_app
 from wallet.gateways.antifraud import AntiFraudGateway
 
 
