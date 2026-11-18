@@ -2,7 +2,6 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
-from wallet.domain.models import Transaction, TransactionType
 
 from tests.support import make_account
 from wallet.domain.errors import (
@@ -10,6 +9,7 @@ from wallet.domain.errors import (
     InvalidAmountError,
     SameAccountTransferError,
 )
+from wallet.domain.models import Transaction, TransactionType
 from wallet.domain.rules import plan_transfer, summarize
 
 
