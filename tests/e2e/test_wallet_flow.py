@@ -76,7 +76,7 @@ def test_register_transfer_and_statement_full_flow(client, antifraud):
     today = datetime.now(UTC).date().isoformat()
     statement = client.get(
         f"/accounts/{alice['id']}/statement",
-        params={"start_date": today},
+        params={"start_date": today, "end_date": today},
     ).json()
     assert statement["balance_cents"] == 37_655
     assert [(t["type"], t["amount_cents"]) for t in statement["transactions"]] == [

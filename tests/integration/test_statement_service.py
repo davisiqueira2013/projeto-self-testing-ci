@@ -40,6 +40,28 @@ def test_filter_by_start_date(statements, history):
     assert [t.amount_cents for t in st.transactions] == [1_000, 300]
 
 
+def test_end_date_is_inclusive_until_end_of_day(statements, history):
+    st = statements.get_statement(history.id, end_date=date(2026, 11, 12))
+    assert [t.amount_cents for t in st.transactions] == [10_000, 1_000, 300]
+
+
+def test_single_day_window(statements, history):
+    st = statements.get_statement(
+        history.id, start_date=date(2026, 11, 11), end_date=date(2026, 11, 11)
+    )
+    assert [t.amount_cents for t in st.transactions] == [1_000]
+
+
+def test_combined_filters(statements, history):
+    st = statements.get_statement(
+        history.id,
+        start_date=date(2026, 11, 11),
+        end_date=date(2026, 11, 12),
+        tx_type=TransactionType.CREDIT,
+    )
+    assert [t.amount_cents for t in st.transactions] == [300]
+
+
 def test_inverted_period_is_rejected(statements, history):
     with pytest.raises(InvalidRequestError):
         statements.get_statement(
